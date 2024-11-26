@@ -1,1 +1,1 @@
-# SSD
+# Symulacja systemów dyskretnych
