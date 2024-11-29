@@ -13,6 +13,7 @@ public class Main extends Application {
         launch(args);
     }
 
+
     @Override
     public void start(Stage primaryStage) {
         primaryStage.setTitle("Smoke simulation");
@@ -23,7 +24,7 @@ public class Main extends Application {
         primaryStage.setScene(scene);
         primaryStage.show();
 
-        SmokeSimulation smokeSimulation = new SmokeSimulation(10, 10, 10,0.05,  0.3, 1000);
+        SmokeSimulation smokeSimulation = new SmokeSimulation(10, 10, 10, 0.05, 0.3, 1000);
         smokeSimulation.addBound(9, 9, 0, 9, 0, 0);
         smokeSimulation.addBound(4, 9, 1, 1, 0, 0);
         smokeSimulation.addBound(6, 6, 1, 3, 0, 0);
@@ -31,7 +32,7 @@ public class Main extends Application {
         smokeSimulation.addSource(2, 8, 0);
         smokeSimulation.room.printGrid2D();
 
-        Color color = new Color(0.5,0.5,0.5, 0.5);
+        Color color = new Color(0.5, 0.5, 0.5, 0.5);
         // Grid grid = new Grid(100, 100, 100);
         // for (int i = 0; i < 100; i++) {
         //     for (int j = 0; j < 100; j++) {

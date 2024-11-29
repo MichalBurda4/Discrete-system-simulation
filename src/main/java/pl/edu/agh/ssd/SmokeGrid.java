@@ -2,6 +2,7 @@ package pl.edu.agh.ssd;
 
 import javafx.scene.paint.Color;
 
+
 public class SmokeGrid {
 
     /**
@@ -45,6 +46,7 @@ public class SmokeGrid {
 
     /**
      * Konstruktor siatki
+     *
      * @param X liczba komórek w siatce w osi X
      * @param Y liczba komórek w siatce w osi Y
      * @param Z liczba komórek w siatce w osi Z
@@ -87,12 +89,13 @@ public class SmokeGrid {
 
     /**
      * Metoda pomocnicza inicjalizujaca wartosci pól klasy SmokeGrid typu double[][][]
+     *
      * @param values tablica 3D dla której chcemy zainicjalizować wartości
      */
     private void initValues(double[][][] values, double value) {
-        for(int x = 0; x < gridSize[0]; x++) {
-            for(int y = 0; y < gridSize[1]; y++) {
-                for(int z = 0; z < gridSize[2]; z++) {
+        for (int x = 0; x < gridSize[0]; x++) {
+            for (int y = 0; y < gridSize[1]; y++) {
+                for (int z = 0; z < gridSize[2]; z++) {
                     values[x][y][z] = value;
                 }
             }
@@ -101,12 +104,13 @@ public class SmokeGrid {
 
     /**
      * Metoda pomocnicza inicjalizujaca wartosci pól klasy SmokeGrid typu boolean[][][]
+     *
      * @param values tablica 3D dla której chcemy zainicjalizować wartości
      */
     private void initBarrier(boolean[][][] values) {
-        for(int x = 0; x < gridSize[0]; x++) {
-            for(int y = 0; y < gridSize[1]; y++) {
-                for(int z = 0; z < gridSize[2]; z++) {
+        for (int x = 0; x < gridSize[0]; x++) {
+            for (int y = 0; y < gridSize[1]; y++) {
+                for (int z = 0; z < gridSize[2]; z++) {
                     values[x][y][z] = false;
                 }
             }
@@ -120,16 +124,14 @@ public class SmokeGrid {
     /**
      * Metoda tylko do testów wypisująca do konsoli przekrój siatki z barierami i zródłami dymu
      */
-    public void printGrid2D(){
-        for(int x = 0; x < gridSize[0]; x++){
-            for(int y = 0; y < gridSize[1]; y++){
-                if(isBarrier[x][y][0]){
+    public void printGrid2D() {
+        for (int x = 0; x < gridSize[0]; x++) {
+            for (int y = 0; y < gridSize[1]; y++) {
+                if (isBarrier[x][y][0]) {
                     System.out.print("X ");
-                }
-                else if (isSource[x][y][0]){
+                } else if (isSource[x][y][0]) {
                     System.out.print("S ");
-                }
-                else {
+                } else {
                     System.out.print("O ");
                 }
             }
