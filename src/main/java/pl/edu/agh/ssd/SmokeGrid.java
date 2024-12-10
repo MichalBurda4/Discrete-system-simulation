@@ -43,6 +43,8 @@ public class SmokeGrid {
      */
     boolean[][][] isBarrier, isSource;
 
+    public double[][][] divergence; // Nowe pole
+
 
     /**
      * Konstruktor siatki
@@ -66,6 +68,9 @@ public class SmokeGrid {
         density = new double[X][Y][Z];
         isBarrier = new boolean[X][Y][Z];
         isSource = new boolean[X][Y][Z];
+
+        divergence = new double[X][Y][Z]; // Inicjalizacja nowego pola
+
 
         initValues(velocityX, 0);
         initValues(velocityY, 0);
