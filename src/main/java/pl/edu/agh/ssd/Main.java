@@ -26,6 +26,7 @@ public class Main extends Application {
 
     Box[][][] boxGrid = new Box[squareRoomSize][squareRoomSize][squareRoomSize];
 
+
     @Override
     public void start(Stage stage) {
         materials = new PhongMaterial[10];

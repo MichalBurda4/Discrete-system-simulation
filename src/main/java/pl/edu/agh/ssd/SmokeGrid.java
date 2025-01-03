@@ -75,7 +75,6 @@ public class SmokeGrid {
 
         divergence = new double[X][Y][Z]; // Inicjalizacja nowego pola
 
-
         initValues(velocityX, 0);
         initValues(velocityY, 0);
         initValues(velocityZ, 0);

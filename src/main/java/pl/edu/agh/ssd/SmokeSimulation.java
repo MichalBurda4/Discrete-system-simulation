@@ -335,6 +335,7 @@ public class SmokeSimulation {
 
     }
 
+
     // Kopiowanie siatki 3D
     private double[][][] copyGrid(double[][][] grid) {
         int xSize = grid.length;
