@@ -12,7 +12,7 @@ public class SmokeGrid {
      * gridSize[2] == Z
      */
     int[] gridSize;
-
+ 
     /**
      * Aktualne prędkości komórki wzgledem odpowienich osi
      */
@@ -37,6 +37,9 @@ public class SmokeGrid {
      * Gęstość dymu w komórce
      */
     double[][][] density;
+
+//    test
+    double[][][] prevDensity;
 
     /**
      * Przeszkody i źródła dymu
@@ -66,6 +69,7 @@ public class SmokeGrid {
         pressure = new double[X][Y][Z];
         prevPressure = new double[X][Y][Z];
         density = new double[X][Y][Z];
+        prevDensity = new double[X][Y][Z];
         isBarrier = new boolean[X][Y][Z];
         isSource = new boolean[X][Y][Z];
 
@@ -87,6 +91,9 @@ public class SmokeGrid {
         initValues(prevTemperature, 293.15);
 
         initValues(density, 0);
+        initValues(prevDensity, 0);
+
+        initValues(divergence, 0);
 
         initBarrier(isBarrier);
         initBarrier(isSource);

@@ -31,34 +31,13 @@ public class SmokeSimulation {
      * @param defaultSourceVelocity Predkość dymu wydostającego się ze źródła
      * @param defaultSourceDensity  Gęstość dymu wydostającego się ze źródła
      */
-    SmokeSimulation(int width, int height, int depth, double timeStep, double defaultSourceVelocity, double defaultSourceDensity) {
+    SmokeSimulation(int width, int height, int depth, double timeStep, double defaultSourceVelocity, double defaultSourceDensity, double diffRate) {
         this.room = new SmokeGrid(width, height, depth);
         this.timeStep = timeStep;
         this.defaultSourceVelocity = defaultSourceVelocity;
         this.defaultSourceDensity = defaultSourceDensity;
+        this.diffRate = diffRate;
     }
-
-    /**
-     * Krok głównej pętli symulacji
-     */
-    private void step() {
-        //addBuoyancy();
-        //addWind();
-        //enforceBoundaryConditions();
-
-        diffuse(room.velocityX, room.prevVelocityX, 0.0001);
-        diffuse(room.velocityY, room.prevVelocityY, 0.0001);
-        diffuse(room.velocityZ, room.prevVelocityZ, 0.0001);
-
-        project(room.velocityX, room.velocityY, room.velocityZ, room.pressure, room.density);
-
-        advect(room.velocityX, room.prevVelocityX, room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ);
-        advect(room.velocityY, room.prevVelocityY, room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ);
-        advect(room.velocityZ, room.prevVelocityZ, room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ);
-
-        project(room.velocityX, room.velocityY, room.velocityZ, room.pressure, room.density);
-    }
-
 
     /**
      * Metoda dodająca jasność dymu(density)
@@ -129,9 +108,9 @@ public class SmokeSimulation {
      * @param z współrzęda osi Z
      */
     public void addSource(int x, int y, int z) {
-        this.room.isSource[y][x][z] = true;
+        this.room.isSource[x][y][z] = true;
         this.room.density[x][y][z] = defaultSourceDensity;
-        this.room.velocityY[x][y][z] = defaultSourceVelocity;
+        this.room.velocityY[x][y][z] = -defaultSourceVelocity;
     }
 
     //    Przydatny moze sie okazac jeden z tych projektow
@@ -142,19 +121,22 @@ public class SmokeSimulation {
 //
 
 
-//        Ta metoda odpowiada za rozpraszanie właściwości płynu (np. gęstości, temperatury, prędkości) w czasie.
+    //        Ta metoda odpowiada za rozpraszanie właściwości płynu (np. gęstości, temperatury, prędkości) w czasie.
 //         Rozpraszanie modeluje dyfuzję, czyli proces wyrównywania wartości w płynie.
     private void diffuse(double[][][] current, double[][][] previous, double diffRate) {
-        double a = timeStep * diffRate * room.gridSize[0] * room.gridSize[1] * room.gridSize[2];
-        for (int iteration = 0; iteration < 20; iteration++) {
+
+        double a = timeStep * diffRate * room.gridSize[0] * room.gridSize[1];
+        for (int iteration = 0; iteration < 5; iteration++) {
             for (int x = 1; x < room.gridSize[0] - 1; x++) {
                 for (int y = 1; y < room.gridSize[1] - 1; y++) {
                     for (int z = 1; z < room.gridSize[2] - 1; z++) {
+
                         current[x][y][z] = (previous[x][y][z] + a * (
-                                current[x+1][y][z] + current[x-1][y][z] +
-                                        current[x][y+1][z] + current[x][y-1][z] +
-                                        current[x][y][z+1] + current[x][y][z-1]
+                                current[x + 1][y][z] + current[x - 1][y][z] +
+                                        current[x][y + 1][z] + current[x][y - 1][z] +
+                                        current[x][y][z + 1] + current[x][y][z - 1]
                         )) / (1 + 6 * a);
+
                     }
                 }
             }
@@ -162,8 +144,7 @@ public class SmokeSimulation {
         }
     }
 
-
-
+//    Pierwsza wersja advect ktora nie jest juz uzywana
 //Adwekcja odpowiada za przemieszczanie właściwości płynu (np. dymu lub temperatury) zgodnie z jego prędkością.
 //To krok, który odpowiada za transport w przestrzeni.
     private void advect(double[][][] current, double[][][] previous,
@@ -204,9 +185,73 @@ public class SmokeSimulation {
         enforceBoundaryConditions(); // Ustaw granice na krawędziach
     }
 
+    private void advectV2(double[][][] current, double[][][] previous, double[][][] velocityX, double[][][] velocityY, double[][][] velocityZ) {
+        double i0, i1, j0, j1, k0, k1;
+        double dtx = timeStep * (room.gridSize[0] - 2);
+        double dty = timeStep * (room.gridSize[1] - 2);
+        double dtz = timeStep * (room.gridSize[2] - 2);
+
+        double s0, s1, t0, t1, u0, u1;
+        double tmp1, tmp2, tmp3, x, y, z;
+        double iFloat, jFloat, kFloat;
+        int i, j, k;
+
+        for (k = 1, kFloat = 1; k < room.gridSize[2] - 1; k++, kFloat++) {
+            for (j = 1, jFloat = 1; j < room.gridSize[1] - 1; j++, jFloat++) {
+                for (i = 1, iFloat = 1; i < room.gridSize[0] - 1; i++, iFloat++) {
+                    tmp1 = dtx * room.velocityX[i][j][k];
+                    tmp2 = dty * room.velocityY[i][j][k];
+                    tmp3 = dtz * room.velocityZ[i][j][k];
+                    x = iFloat - tmp1;
+                    y = jFloat - tmp2;
+                    z = kFloat - tmp3;
+
+                    if (x < 0.5) x = 0.5;
+                    if (x > room.gridSize[0] + 0.5) x = room.gridSize[0] + 0.5;
+                    i0 = Math.floor(x);
+                    i1 = i0 + 1;
+                    if (y < 0.5) y = 0.5;
+                    if (y > room.gridSize[1] + 0.5) y = room.gridSize[1] + 0.5;
+                    j0 = Math.floor(y);
+                    j1 = j0 + 1;
+                    if (z < 0.5) z = 0.5;
+                    if (z > room.gridSize[2] + 0.5) z = room.gridSize[2] + 0.5;
+                    k0 = Math.floor(z);
+                    k1 = k0 + 1;
+
+                    s1 = x - i0;
+                    s0 = 1 - s1;
+                    t1 = y - j0;
+                    t0 = 1 - t1;
+                    u1 = z - k0;
+                    u0 = 1 - u1;
+
+                    int i0i = (int) i0;
+                    int i1i = (int) i1;
+                    int j0i = (int) j0;
+                    int j1i = (int) j1;
+                    int k0i = (int) k0;
+                    int k1i = (int) k1;
+                    if(i0i > room.gridSize[0] - 1 || i1i > room.gridSize[0] - 1) continue;
+                    if(j0i > room.gridSize[1] - 1 || j1i > room.gridSize[1] - 1) continue;
+                    if(k0i > room.gridSize[2] - 1 || k1i > room.gridSize[2] - 1) continue;
+                    current[i][j][k] =
+                           s0 * (t0 * (u0 * previous[i0i][j0i][k0i]
+                                    +  u1 * previous[i0i][j0i][k1i])
+                              + (t1 * (u0 * previous[i0i][j1i][k0i]
+                                    +  u1 * previous[i0i][j1i][k1i])))
+                         + s1 * (t0 * (u0 * previous[i1i][j0i][k0i]
+                                    +  u1 * previous[i1i][j0i][k1i])
+                              + (t1 * (u0 * previous[i1i][j1i][k0i]
+                                    +  u1 * previous[i1i][j1i][k1i])));
+                }
+            }
+        }
+        enforceBoundaryConditions(); // Ustaw granice na krawędziach
+    }
 
 
-//Ten krok zapewnia, że symulacja zachowuje zasadę nieściśliwości płynu (np. powietrze/dym traktujemy jako nieściśliwy).
+    //Ten krok zapewnia, że symulacja zachowuje zasadę nieściśliwości płynu (np. powietrze/dym traktujemy jako nieściśliwy).
 //W tym celu metoda usuwa składową wiru z pola prędkości.
     private void project(double[][][] velocityX, double[][][] velocityY, double[][][] velocityZ,
                          double[][][] pressure, double[][][] divergence) {
@@ -215,9 +260,9 @@ public class SmokeSimulation {
             for (int y = 1; y < room.gridSize[1] - 1; y++) {
                 for (int z = 1; z < room.gridSize[2] - 1; z++) {
                     divergence[x][y][z] = -0.5 * (
-                            velocityX[x+1][y][z] - velocityX[x-1][y][z]
-                                    + velocityY[x][y+1][z] - velocityY[x][y-1][z]
-                                    + velocityZ[x][y][z+1] - velocityZ[x][y][z-1]
+                            velocityX[x + 1][y][z] - velocityX[x - 1][y][z]
+                                    + velocityY[x][y + 1][z] - velocityY[x][y - 1][z]
+                                    + velocityZ[x][y][z + 1] - velocityZ[x][y][z - 1]
                     ) / room.gridSize[0];
                     pressure[x][y][z] = 0;
                 }
@@ -230,9 +275,9 @@ public class SmokeSimulation {
                 for (int y = 1; y < room.gridSize[1] - 1; y++) {
                     for (int z = 1; z < room.gridSize[2] - 1; z++) {
                         pressure[x][y][z] = (divergence[x][y][z] +
-                                pressure[x+1][y][z] + pressure[x-1][y][z] +
-                                pressure[x][y+1][z] + pressure[x][y-1][z] +
-                                pressure[x][y][z+1] + pressure[x][y][z-1]) / 6;
+                                pressure[x + 1][y][z] + pressure[x - 1][y][z] +
+                                pressure[x][y + 1][z] + pressure[x][y - 1][z] +
+                                pressure[x][y][z + 1] + pressure[x][y][z - 1]) / 6;
                     }
                 }
             }
@@ -242,9 +287,9 @@ public class SmokeSimulation {
         for (int x = 1; x < room.gridSize[0] - 1; x++) {
             for (int y = 1; y < room.gridSize[1] - 1; y++) {
                 for (int z = 1; z < room.gridSize[2] - 1; z++) {
-                    velocityX[x][y][z] -= 0.5 * (pressure[x+1][y][z] - pressure[x-1][y][z]) / room.gridSize[0];
-                    velocityY[x][y][z] -= 0.5 * (pressure[x][y+1][z] - pressure[x][y-1][z]) / room.gridSize[1];
-                    velocityZ[x][y][z] -= 0.5 * (pressure[x][y][z+1] - pressure[x][y][z-1]) / room.gridSize[2];
+                    velocityX[x][y][z] -= 0.5 * (pressure[x + 1][y][z] - pressure[x - 1][y][z]) * room.gridSize[0];
+                    velocityY[x][y][z] -= 0.5 * (pressure[x][y + 1][z] - pressure[x][y - 1][z]) * room.gridSize[1];
+                    velocityZ[x][y][z] -= 0.5 * (pressure[x][y][z + 1] - pressure[x][y][z - 1]) * room.gridSize[2];
                 }
             }
         }
@@ -265,20 +310,29 @@ public class SmokeSimulation {
 
     // Główna metoda aktualizująca symulację
     public void update() {
-        // Przekazywanie gęstości z poprzedniego kroku
-        double[][][] previousDensity = copyGrid(room.density);
-        double[][][] previousVelocityX = copyGrid(room.velocityX);
-        double[][][] previousVelocityY = copyGrid(room.velocityY);
-        double[][][] previousVelocityZ = copyGrid(room.velocityZ);
 
         // Rozpraszanie
-        diffuse(room.density, previousDensity, diffRate);
+        diffuse(room.velocityX, room.prevVelocityX, diffRate);
+        diffuse(room.velocityY, room.prevVelocityY, diffRate);
+        diffuse(room.velocityZ, room.prevVelocityZ, diffRate);
 
-        // Adwekcja
-        advect(room.density, previousDensity, previousVelocityX, previousVelocityY, previousVelocityZ);
+        project(room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ, room.pressure, room.divergence);
 
-        // Projekcja (zapewnienie nieściśliwości płynu)
+        advectV2(room.velocityX, room.prevVelocityX, room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ);
+        advectV2(room.velocityY, room.prevVelocityY, room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ);
+        advectV2(room.velocityZ, room.prevVelocityZ, room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ);
+
         project(room.velocityX, room.velocityY, room.velocityZ, room.pressure, room.divergence);
+
+        diffuse(room.density, room.prevDensity, diffRate);
+
+        advectV2(room.density, room.prevDensity, room.velocityX, room.velocityY, room.velocityZ);
+
+        room.prevVelocityX = copy(room.velocityX);
+        room.prevVelocityY = copy(room.velocityY);
+        room.prevVelocityZ = copy(room.velocityZ);
+        room.prevDensity = copy(room.density);
+
     }
 
     // Kopiowanie siatki 3D
@@ -290,9 +344,17 @@ public class SmokeSimulation {
         double[][][] copy = new double[xSize][ySize][zSize];
         for (int x = 0; x < xSize; x++) {
             for (int y = 0; y < ySize; y++) {
-                for (int z = 0; z < zSize; z++) {
-                    copy[x][y][z] = grid[x][y][z];
-                }
+                System.arraycopy(grid[x][y], 0, copy[x][y], 0, zSize);
+            }
+        }
+        return copy;
+    }
+
+    private double[][][] copy(double[][][] original) {
+        double[][][] copy = new double[original.length][original[0].length][original[0][0].length];
+        for (int i = 0; i < original.length; i++) {
+            for (int j = 0; j < original[i].length; j++) {
+                System.arraycopy(original[i][j], 0, copy[i][j], 0, original[i][j].length);
             }
         }
         return copy;
