@@ -29,11 +29,6 @@ public class SmokeGrid {
     double[][][] temperature, prevTemperature;
 
     /**
-     * Aktualna i poprzedzająca wartość ciśnienia w komórce
-     */
-    double[][][] pressure, prevPressure;
-
-    /**
      * Gęstość dymu w komórce
      */
     double[][][] density;
@@ -45,8 +40,6 @@ public class SmokeGrid {
      * Przeszkody i źródła dymu
      */
     boolean[][][] isBarrier, isSource;
-
-    public double[][][] divergence; // Nowe pole
 
 
     /**
@@ -66,14 +59,10 @@ public class SmokeGrid {
         prevVelocityZ = new double[X][Y][Z];
         temperature = new double[X][Y][Z];
         prevTemperature = new double[X][Y][Z];
-        pressure = new double[X][Y][Z];
-        prevPressure = new double[X][Y][Z];
         density = new double[X][Y][Z];
         prevDensity = new double[X][Y][Z];
         isBarrier = new boolean[X][Y][Z];
         isSource = new boolean[X][Y][Z];
-
-        divergence = new double[X][Y][Z]; // Inicjalizacja nowego pola
 
         initValues(velocityX, 0);
         initValues(velocityY, 0);
@@ -83,16 +72,11 @@ public class SmokeGrid {
         initValues(prevVelocityY, 0);
         initValues(prevVelocityZ, 0);
 
-        initValues(pressure, 101325);
-        initValues(prevPressure, 101325);
-
         initValues(temperature, 293.15);
         initValues(prevTemperature, 293.15);
 
         initValues(density, 0);
         initValues(prevDensity, 0);
-
-        initValues(divergence, 0);
 
         initBarrier(isBarrier);
         initBarrier(isSource);

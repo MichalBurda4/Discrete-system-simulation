@@ -7,10 +7,12 @@ import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.scene.Group;
 import javafx.scene.PerspectiveCamera;
+import javafx.scene.PointLight;
 import javafx.scene.Scene;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
+import javafx.scene.shape.Cylinder;
 import javafx.scene.transform.Rotate;
 import javafx.stage.Stage;
 import javafx.util.Duration;
@@ -22,10 +24,14 @@ public class Main extends Application {
     private final Rotate rotateY = new Rotate(15, Rotate.Y_AXIS);
     private final Rotate rotateZ = new Rotate(0, Rotate.Z_AXIS);
     private PhongMaterial[] materials;
-    private final int squareRoomSize = 16;
+    private final int squareRoomSize = 32;
+
+    private double mouseOldX;
+    private double mouseOldY;
+    private double cameraAngleX = 0;
+    private double cameraAngleY = 0;
 
     Box[][][] boxGrid = new Box[squareRoomSize][squareRoomSize][squareRoomSize];
-
 
     @Override
     public void start(Stage stage) {
@@ -38,18 +44,19 @@ public class Main extends Application {
         PhongMaterial material = new PhongMaterial();
         material.setDiffuseColor(new Color(0.5, 0.5, 0.5, 0.6));
 
+        Group group = new Group();
+
         int WIDTH = 1400;
         int HEIGHT = 800;
-        Group group = new Group();
         for (int i = 0; i < squareRoomSize; i++) {
             for (int j = 0; j < squareRoomSize; j++) {
                 for (int k = 0; k < squareRoomSize; k++) {
                     Box cube = new Box(5, 5, 5);
-                    // cube.setMaterial(material);
-                    cube.setTranslateX(i * 5);
-                    cube.setTranslateY(j * 5);
-                    cube.setTranslateZ(k * 5);
-                    // cube.setVisible(false);
+
+                    cube.setTranslateX((int) (i - squareRoomSize / 2) * 5);
+                    cube.setTranslateY((int) (j - squareRoomSize / 2) * 5);
+                    cube.setTranslateZ((int) (k - squareRoomSize / 2) * 5);
+
                     boxGrid[i][j][k] = cube;
                     group.getChildren().add(cube);
                 }
@@ -59,25 +66,63 @@ public class Main extends Application {
         PerspectiveCamera camera = new PerspectiveCamera(true);
         camera.setNearClip(1);
         camera.setFarClip(1000);
-        camera.setTranslateX(-50);
-        camera.setTranslateY(70);
+        camera.setTranslateX(-100);
+        camera.setTranslateY(30);
         camera.setTranslateZ(-400);
+
+        PointLight light = new PointLight(Color.WHITE);
+        light.setTranslateX(0);
+        light.setTranslateY(0);
+        light.setTranslateZ(-500);
+        group.getChildren().add(light);
+
         camera.getTransforms().addAll(rotateX, rotateY, rotateZ);
 
         Scene scene = new Scene(group, WIDTH, HEIGHT);
         scene.setCamera(camera);
+
+        scene.setOnMousePressed(event -> {
+            mouseOldX = event.getSceneX();
+            mouseOldY = event.getSceneY();
+        });
+
+        scene.setOnMouseDragged(event -> {
+            double mouseDeltaX = event.getSceneX() - mouseOldX;
+            double mouseDeltaY = event.getSceneY() - mouseOldY;
+
+            cameraAngleX += mouseDeltaY * 0.1;
+            cameraAngleY += mouseDeltaX * 0.1;
+
+            rotateX.setAngle(cameraAngleX);
+            rotateY.setAngle(cameraAngleY);
+
+            mouseOldX = event.getSceneX();
+            mouseOldY = event.getSceneY();
+        });
+
+        scene.setOnScroll(event -> {
+            double zoomAmount = event.getDeltaY() * 0.2;
+            double newTranslateZ = camera.getTranslateZ() + zoomAmount;
+
+            if (newTranslateZ > -50) {
+                newTranslateZ = -50;
+            }
+            if (newTranslateZ < -1000) {
+                newTranslateZ = -1000;
+            }
+
+            camera.setTranslateZ(newTranslateZ);
+        });
+
         stage.setScene(scene);
         stage.show();
 
-
         SmokeSimulation smokeSimulation = new SmokeSimulation(squareRoomSize, squareRoomSize, squareRoomSize, 0.001, 0.3, 1000, 0.1);
-//        smokeSimulation.addBound(0, 4, 8, 15, 0, 5);
-        smokeSimulation.addSource(8, 15, 8);
+        smokeSimulation.addSource(30, 30, 30);
 
         Timeline timeline = new Timeline(new KeyFrame(Duration.seconds(0.1), event -> {
             smokeSimulation.update();
 
-            // Rysowanie aktualnego stanu symulacji
             for (int i = 0; i < squareRoomSize; i++) {
                 for (int j = 0; j < squareRoomSize; j++) {
                     for (int k = 0; k < squareRoomSize; k++) {
@@ -100,8 +145,8 @@ public class Main extends Application {
         }));
         timeline.setCycleCount(Animation.INDEFINITE);
         timeline.play();
-
     }
+
 
     private PhongMaterial getMaterial(double density) {
         double normDensity = Math.max(0.0, Math.min(1.0, density));
@@ -129,6 +174,7 @@ public class Main extends Application {
         }
         return materials[9];
     }
+
 
     public static void main(String[] args) {
         launch(args);
