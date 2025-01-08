@@ -1,9 +1,6 @@
 package pl.edu.agh.ssd;
 
-import javafx.animation.Animation;
-import javafx.animation.AnimationTimer; // Poprawne zaimportowanie
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
+import javafx.animation.*;
 import javafx.application.Application;
 import javafx.scene.Group;
 import javafx.scene.PerspectiveCamera;
@@ -117,8 +114,15 @@ public class Main extends Application {
         stage.setScene(scene);
         stage.show();
 
-        SmokeSimulation smokeSimulation = new SmokeSimulation(squareRoomSize, squareRoomSize, squareRoomSize, 0.001, 0.3, 1000, 0.1);
-        smokeSimulation.addSource(30, 30, 30);
+        Timeline timeline = getTimeline();
+        timeline.play();
+    }
+
+    private Timeline getTimeline() {
+        SmokeSimulation smokeSimulation = new SmokeSimulation(squareRoomSize, squareRoomSize, squareRoomSize, 0.1, 3, 1000, 0.00001);
+        smokeSimulation.addSource(15, 30, 15);
+        smokeSimulation.addBound(15, 31, 24, 24, 0, 31);
+
 
         Timeline timeline = new Timeline(new KeyFrame(Duration.seconds(0.1), event -> {
             smokeSimulation.update();
@@ -144,7 +148,9 @@ public class Main extends Application {
             }
         }));
         timeline.setCycleCount(Animation.INDEFINITE);
+
         timeline.play();
+        return timeline;
     }
 
 

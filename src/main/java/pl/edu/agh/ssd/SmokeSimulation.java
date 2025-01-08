@@ -1,5 +1,8 @@
 package pl.edu.agh.ssd;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+
 public class SmokeSimulation {
 
 
@@ -19,7 +22,10 @@ public class SmokeSimulation {
      * Gęstość dymu wydostającego się ze źródła
      */
     double defaultSourceDensity;
+
     double diffRate;
+
+    ArrayList<ArrayList<Integer>> bounds = new ArrayList<>();
 
     /**
      * Konstruktor solvera symulacji
@@ -40,35 +46,6 @@ public class SmokeSimulation {
     }
 
     /**
-     * Metoda dodająca jasność dymu(density)
-     *
-     * @param x      współrzędna x
-     * @param y      współrzędna y
-     * @param z      współrzędna z
-     * @param amount ilość jasności która chcemy dodać
-     */
-    public void addDensity(int x, int y, int z, double amount) {
-        this.room.density[x][y][z] += amount;
-    }
-
-    /**
-     * Metoda dodająca prędkość do komórki
-     *
-     * @param x       współrzędna x
-     * @param y       współrzędna y
-     * @param z       współrzędna z
-     * @param amountX dodawana prędkość w osi x
-     * @param amountY dodawana prędkość w osi y
-     * @param amountZ dodawana prędkość w osi z
-     */
-    public void addVelocity(int x, int y, int z, double amountX, double amountY, double amountZ) {
-        this.room.velocityX[x][y][z] += amountX;
-        this.room.velocityY[x][y][z] += amountY;
-        this.room.velocityZ[x][y][z] += amountZ;
-    }
-
-
-    /**
      * Metoda ustawiająca przeszkodę (w postaci punktu)
      *
      * @param x współrzęda osi X
@@ -76,7 +53,8 @@ public class SmokeSimulation {
      * @param z współrzęda osi Z
      */
     public void addBound(int x, int y, int z) {
-        this.room.isBarrier[y][x][z] = true;
+        this.room.isBarrier[x][y][z] = true;
+        bounds.add(new ArrayList<>(Arrays.asList(x, y, z)));
     }
 
     /**
@@ -94,7 +72,7 @@ public class SmokeSimulation {
         for (int i = startX; i <= endX; i++) {
             for (int j = startY; j <= endY; j++) {
                 for (int k = startZ; k <= endZ; k++) {
-                    this.room.isBarrier[i][j][k] = true;
+                    addBound(i, j, k);
                 }
             }
         }
@@ -126,11 +104,12 @@ public class SmokeSimulation {
     private void diffuse(int b, double[][][] current, double[][][] previous, double diffRate) {
 
         double a = timeStep * diffRate * (room.gridSize[0] - 2) * (room.gridSize[1] - 2);
-        for (int iteration = 0; iteration < 10; iteration++) {
+        for (int iteration = 0; iteration < 4; iteration++) {
             for (int x = 1; x < room.gridSize[0] - 1; x++) {
                 for (int y = 1; y < room.gridSize[1] - 1; y++) {
                     for (int z = 1; z < room.gridSize[2] - 1; z++) {
                         if (room.isSource[x][y][z]) continue;
+                        if (room.isBarrier[x][y][z]) continue;
                         current[x][y][z] = (previous[x][y][z] + a * (
                                 current[x + 1][y][z] + current[x - 1][y][z] +
                                         current[x][y + 1][z] + current[x][y - 1][z] +
@@ -144,47 +123,8 @@ public class SmokeSimulation {
         }
     }
 
-    //    Pierwsza wersja advect ktora nie jest juz uzywana
-//Adwekcja odpowiada za przemieszczanie właściwości płynu (np. dymu lub temperatury) zgodnie z jego prędkością.
-//To krok, który odpowiada za transport w przestrzeni.
-    private void advect(double[][][] current, double[][][] previous,
-                        double[][][] velocityX, double[][][] velocityY, double[][][] velocityZ) {
-        for (int x = 1; x < room.gridSize[0] - 1; x++) {
-            for (int y = 1; y < room.gridSize[1] - 1; y++) {
-                for (int z = 1; z < room.gridSize[2] - 1; z++) {
-                    double xPos = x - timeStep * velocityX[x][y][z];
-                    double yPos = y - timeStep * velocityY[x][y][z];
-                    double zPos = z - timeStep * velocityZ[x][y][z];
 
-                    xPos = Math.max(0.5, Math.min(xPos, room.gridSize[0] - 1.5));
-                    yPos = Math.max(0.5, Math.min(yPos, room.gridSize[1] - 1.5));
-                    zPos = Math.max(0.5, Math.min(zPos, room.gridSize[2] - 1.5));
-
-                    int x0 = (int) Math.floor(xPos);
-                    int x1 = x0 + 1;
-                    int y0 = (int) Math.floor(yPos);
-                    int y1 = y0 + 1;
-                    int z0 = (int) Math.floor(zPos);
-                    int z1 = z0 + 1;
-
-                    double s1 = xPos - x0;
-                    double s0 = 1 - s1;
-                    double t1 = yPos - y0;
-                    double t0 = 1 - t1;
-                    double u1 = zPos - z0;
-                    double u0 = 1 - u1;
-
-                    current[x][y][z] =
-                            s0 * (t0 * (u0 * previous[x0][y0][z0] + u1 * previous[x0][y0][z1])
-                                    + t1 * (u0 * previous[x0][y1][z0] + u1 * previous[x0][y1][z1]))
-                                    + s1 * (t0 * (u0 * previous[x1][y0][z0] + u1 * previous[x1][y0][z1])
-                                    + t1 * (u0 * previous[x1][y1][z0] + u1 * previous[x1][y1][z1]));
-                }
-            }
-        }
-    }
-
-    private void advectV2(int b, double[][][] current, double[][][] previous, double[][][] velocityX, double[][][] velocityY, double[][][] velocityZ) {
+    private void advect(int b, double[][][] current, double[][][] previous, double[][][] velocityX, double[][][] velocityY, double[][][] velocityZ) {
         double i0, i1, j0, j1, k0, k1;
         double dtx = timeStep * (room.gridSize[0] - 2);
         double dty = timeStep * (room.gridSize[1] - 2);
@@ -199,6 +139,7 @@ public class SmokeSimulation {
             for (j = 1, jFloat = 1; j < room.gridSize[1] - 1; j++, jFloat++) {
                 for (i = 1, iFloat = 1; i < room.gridSize[0] - 1; i++, iFloat++) {
                     if (room.isSource[i][j][k]) continue;
+                    if (room.isBarrier[i][j][k]) continue;
                     tmp1 = dtx * velocityX[i][j][k];
                     tmp2 = dty * velocityY[i][j][k];
                     tmp3 = dtz * velocityZ[i][j][k];
@@ -260,11 +201,11 @@ public class SmokeSimulation {
             for (int y = 1; y < room.gridSize[1] - 1; y++) {
                 for (int z = 1; z < room.gridSize[2] - 1; z++) {
                     if (room.isSource[x][y][z]) continue;
+                    if (room.isBarrier[x][y][z]) continue;
                     divergence[x][y][z] = -0.5 * (
-                            velocityX[x + 1][y][z] - velocityX[x - 1][y][z]
-                                    + velocityY[x][y + 1][z] - velocityY[x][y - 1][z]
-                                    + velocityZ[x][y][z + 1] - velocityZ[x][y][z - 1]
-                    ) / room.gridSize[0]; //tutaj ma byc mnozenie
+                            (velocityX[x + 1][y][z] - velocityX[x - 1][y][z]) / room.gridSize[0]
+                                    + (velocityY[x][y + 1][z] - velocityY[x][y - 1][z]) / room.gridSize[1]
+                                    + (velocityZ[x][y][z + 1] - velocityZ[x][y][z - 1]) / room.gridSize[2]);
                     pressure[x][y][z] = 0;
                 }
             }
@@ -274,11 +215,12 @@ public class SmokeSimulation {
         enforceBoundaryConditions(0, pressure);
 
         // Rozwiąż równe Laplace’a dla ciśnienia
-        for (int iteration = 0; iteration < 10; iteration++) {
+        for (int iteration = 0; iteration < 4; iteration++) {
             for (int x = 1; x < room.gridSize[0] - 1; x++) {
                 for (int y = 1; y < room.gridSize[1] - 1; y++) {
                     for (int z = 1; z < room.gridSize[2] - 1; z++) {
                         if (room.isSource[x][y][z]) continue;
+                        if (room.isBarrier[x][y][z]) continue;
                         pressure[x][y][z] = (divergence[x][y][z] +
                                 pressure[x + 1][y][z] + pressure[x - 1][y][z] +
                                 pressure[x][y + 1][z] + pressure[x][y - 1][z] +
@@ -294,6 +236,7 @@ public class SmokeSimulation {
             for (int y = 1; y < room.gridSize[1] - 1; y++) {
                 for (int z = 1; z < room.gridSize[2] - 1; z++) {
                     if (room.isSource[x][y][z]) continue;
+                    if (room.isBarrier[x][y][z]) continue;
                     velocityX[x][y][z] -= 0.5 * (pressure[x + 1][y][z] - pressure[x - 1][y][z]) * room.gridSize[0];
                     velocityY[x][y][z] -= 0.5 * (pressure[x][y + 1][z] - pressure[x][y - 1][z]) * room.gridSize[1];
                     velocityZ[x][y][z] -= 0.5 * (pressure[x][y][z + 1] - pressure[x][y][z - 1]) * room.gridSize[2];
@@ -305,11 +248,60 @@ public class SmokeSimulation {
         enforceBoundaryConditions(3, velocityZ);
     }
 
+    //    to jest test i raczej nie bedzie uzywane ale narazie zostawiam
+    private void handleCollisionVelocity(int b, double[][][] x){
+        for (ArrayList<Integer> bound : bounds){
+            if(bound.get(0) == 0 || bound.get(1) == 0 || bound.get(2) == 0 || bound.get(0) == 31 || bound.get(1) == 31 || bound.get(2) == 31){
+                continue;
+            }
+            if (b == 3){
+                if (x[bound.get(0)][bound.get(1)][bound.get(2)] > 0){
+                    x[bound.get(0)][bound.get(1)][bound.get(2)] = -x[bound.get(0)][bound.get(1)][bound.get(2) + 1];
+                }
+                else{
+                    x[bound.get(0)][bound.get(1)][bound.get(2)] = -x[bound.get(0)][bound.get(1)][bound.get(2) - 1];
+                }
+            }
+            else if (b == 2){
+                if (x[bound.get(0)][bound.get(1)][bound.get(2)] > 0){
+                    x[bound.get(0)][bound.get(1)][bound.get(2)] = -x[bound.get(0)][bound.get(1) + 1][bound.get(2)];
+                }
+                else{
+                    x[bound.get(0)][bound.get(1)][bound.get(2)] = -x[bound.get(0)][bound.get(1) - 1][bound.get(2)];
+                }
+            }
+            else if (b == 1){
+                if (x[bound.get(0)][bound.get(1)][bound.get(2)] > 0){
+                    x[bound.get(0)][bound.get(1)][bound.get(2)] = -x[bound.get(0) + 1][bound.get(1)][bound.get(2)];
+                }
+                else{
+                    x[bound.get(0)][bound.get(1)][bound.get(2)] = -x[bound.get(0) - 1][bound.get(1)][bound.get(2)];
+                }
+            }
+        }
+    }
+
+//    to jest test i raczej nie bedzie uzywane ale narazie zostawiam
+    private void handleCollisionDensity(int b, double[][][] x){
+        for (ArrayList<Integer> bound : bounds){
+            x[bound.get(0)][bound.get(1)][bound.get(2)] = x[bound.get(0)][bound.get(1) - 1][bound.get(2)];  //to jest wielkie uproszczenie
+        }
+    }
 
     private void enforceBoundaryConditions(int b, double[][][] x) {
         int sizeX = room.gridSize[0];
         int sizeY = room.gridSize[1];
         int sizeZ = room.gridSize[2];
+
+        //    to jest test i raczej nie bedzie uzywane ale narazie zostawiam
+//        if (b == 0){
+//            handleCollisionDensity(b, x);
+//        }
+//        else {
+//            handleCollisionVelocity(b, x);
+//        }
+
+
         for (int j = 1; j < sizeY - 1; j++) {
             for (int i = 1; i < sizeX - 1; i++) {
                 x[i][j][0] = b == 3 ? -x[i][j][1] : x[i][j][1];
@@ -356,15 +348,15 @@ public class SmokeSimulation {
 
         project(room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ, room.velocityX, room.velocityY);
 
-        advectV2(1, room.velocityX, room.prevVelocityX, room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ);
-        advectV2(2, room.velocityY, room.prevVelocityY, room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ);
-        advectV2(3, room.velocityZ, room.prevVelocityZ, room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ);
+        advect(1, room.velocityX, room.prevVelocityX, room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ);
+        advect(2, room.velocityY, room.prevVelocityY, room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ);
+        advect(3, room.velocityZ, room.prevVelocityZ, room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ);
 
         project(room.velocityX, room.velocityY, room.velocityZ, room.prevVelocityX, room.prevVelocityY);
 
         diffuse(0, room.prevDensity, room.density, diffRate); //to jakos dziwnie rozprowadza dym do okola nie wiem czemu
 
-        advectV2(0, room.density, room.prevDensity, room.velocityX, room.velocityY, room.velocityZ);
+        advect(0, room.density, room.prevDensity, room.velocityX, room.velocityY, room.velocityZ);
 
         room.prevVelocityX = copy(room.velocityX);
         room.prevVelocityY = copy(room.velocityY);
