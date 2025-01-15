@@ -9,10 +9,11 @@ import javafx.scene.Scene;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
-import javafx.scene.shape.Cylinder;
 import javafx.scene.transform.Rotate;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main extends Application {
     private static final int WINDOW_SIZE = 800;
@@ -21,7 +22,7 @@ public class Main extends Application {
     private final Rotate rotateY = new Rotate(15, Rotate.Y_AXIS);
     private final Rotate rotateZ = new Rotate(0, Rotate.Z_AXIS);
     private PhongMaterial[] materials;
-    private final int squareRoomSize = 32;
+    private final int squareRoomSize = 50;
 
     private double mouseOldX;
     private double mouseOldY;
@@ -119,13 +120,21 @@ public class Main extends Application {
     }
 
     private Timeline getTimeline() {
-        SmokeSimulation smokeSimulation = new SmokeSimulation(squareRoomSize, squareRoomSize, squareRoomSize, 0.1, 3, 1000, 0.00001);
-        smokeSimulation.addSource(15, 30, 15);
+        SmokeSimulation smokeSimulation = new SmokeSimulation(squareRoomSize, squareRoomSize, squareRoomSize, 0.1, 1.5, 1000, 0.00001);
+        smokeSimulation.addSource(15, 48, 15);
+        smokeSimulation.addWind(30, 15, 15, 0, -0.3,0);
+
         smokeSimulation.addBound(15, 31, 24, 24, 0, 31);
 
+//        AtomicInteger test = new AtomicInteger();
 
         Timeline timeline = new Timeline(new KeyFrame(Duration.seconds(0.1), event -> {
             smokeSimulation.update();
+
+//            System.out.println(test.getAcquire());
+//            if(test.getAndIncrement() > 40){
+//                smokeSimulation.removeSource(15, 48, 15);
+//            }
 
             for (int i = 0; i < squareRoomSize; i++) {
                 for (int j = 0; j < squareRoomSize; j++) {
@@ -136,6 +145,9 @@ public class Main extends Application {
                             boxGrid[i][j][k].setVisible(true);
                         } else if (smokeSimulation.room.isBarrier[i][j][k]) {
                             boxGrid[i][j][k].setMaterial(new PhongMaterial(Color.RED));
+                            boxGrid[i][j][k].setVisible(true);
+                        } else if (smokeSimulation.room.isWindSource[i][j][k]) {
+                            boxGrid[i][j][k].setMaterial(new PhongMaterial(Color.LIMEGREEN));
                             boxGrid[i][j][k].setVisible(true);
                         } else if (density > 0.5) {
                             boxGrid[i][j][k].setMaterial(getMaterial(density));

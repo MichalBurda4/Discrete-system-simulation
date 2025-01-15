@@ -39,7 +39,7 @@ public class SmokeGrid {
     /**
      * Przeszkody i źródła dymu
      */
-    boolean[][][] isBarrier, isSource;
+    boolean[][][] isBarrier, isSource, isWindSource;
 
 
     /**
@@ -63,6 +63,7 @@ public class SmokeGrid {
         prevDensity = new double[X][Y][Z];
         isBarrier = new boolean[X][Y][Z];
         isSource = new boolean[X][Y][Z];
+        isWindSource = new boolean[X][Y][Z];
 
         initValues(velocityX, 0);
         initValues(velocityY, 0);
@@ -80,6 +81,7 @@ public class SmokeGrid {
 
         initBarrier(isBarrier);
         initBarrier(isSource);
+        initBarrier(isWindSource);
     }
 
     /**

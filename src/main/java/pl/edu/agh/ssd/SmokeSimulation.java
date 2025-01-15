@@ -2,6 +2,10 @@ package pl.edu.agh.ssd;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class SmokeSimulation {
 
@@ -91,6 +95,19 @@ public class SmokeSimulation {
         this.room.velocityY[x][y][z] = -defaultSourceVelocity;
     }
 
+    public void removeSource(int x, int y, int z) {
+        this.room.isSource[x][y][z] = false;
+        this.room.density[x][y][z] = 0;
+        this.room.velocityY[x][y][z] = 0;
+    }
+
+    public void addWind(int x, int y, int z, double velocityX, double velocityY, double velocityZ) {
+        this.room.isWindSource[x][y][z] = true;
+        this.room.velocityX[x][y][z] = velocityX;
+        this.room.velocityY[x][y][z] = velocityY;
+        this.room.velocityZ[x][y][z] = velocityZ;
+    }
+
     //    Przydatny moze sie okazac jeden z tych projektow
 //    https://github.com/deltabrot/fluid-dynamics/blob/master/src/NavierStokesSolver.java
 //    https://github.com/davidmoten/jns
@@ -110,6 +127,7 @@ public class SmokeSimulation {
                     for (int z = 1; z < room.gridSize[2] - 1; z++) {
                         if (room.isSource[x][y][z]) continue;
                         if (room.isBarrier[x][y][z]) continue;
+                        if(room.isWindSource[x][y][z]) continue;
                         current[x][y][z] = (previous[x][y][z] + a * (
                                 current[x + 1][y][z] + current[x - 1][y][z] +
                                         current[x][y + 1][z] + current[x][y - 1][z] +
@@ -121,6 +139,44 @@ public class SmokeSimulation {
             }
             enforceBoundaryConditions(b, current);
         }
+    }
+
+
+    private void diffuseParallel(int b, double[][][] current, double[][][] previous, double diffRate) {
+        int numThreads = Runtime.getRuntime().availableProcessors();
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+
+        double a = timeStep * diffRate * (room.gridSize[0] - 2) * (room.gridSize[1] - 2);
+
+        List<Callable<Void>> tasks = new ArrayList<>();
+
+        for (int x = 1; x < room.gridSize[0] - 1; x++) {
+            final int currentX = x;
+            tasks.add(() -> {
+                for (int y = 1; y < room.gridSize[1] - 1; y++) {
+                    for (int z = 1; z < room.gridSize[2] - 1; z++) {
+                        if (room.isSource[currentX][y][z] || room.isBarrier[currentX][y][z]) continue;
+                        current[currentX][y][z] = (previous[currentX][y][z] + a * (
+                                current[currentX + 1][y][z] + current[currentX - 1][y][z] +
+                                        current[currentX][y + 1][z] + current[currentX][y - 1][z] +
+                                        current[currentX][y][z + 1] + current[currentX][y][z - 1]
+                        )) / (1 + 6 * a);
+                    }
+                }
+                return null;
+            });
+        }
+
+        try {
+            executor.invokeAll(tasks);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            e.printStackTrace();  // Opcjonalne logowanie błędu
+        } finally {
+            executor.shutdown();
+        }
+
+        enforceBoundaryConditions(b, current);
     }
 
 
@@ -140,6 +196,7 @@ public class SmokeSimulation {
                 for (i = 1, iFloat = 1; i < room.gridSize[0] - 1; i++, iFloat++) {
                     if (room.isSource[i][j][k]) continue;
                     if (room.isBarrier[i][j][k]) continue;
+                    if(room.isWindSource[i][j][k]) continue;
                     tmp1 = dtx * velocityX[i][j][k];
                     tmp2 = dty * velocityY[i][j][k];
                     tmp3 = dtz * velocityZ[i][j][k];
@@ -191,6 +248,71 @@ public class SmokeSimulation {
         enforceBoundaryConditions(b, current);
     }
 
+    private void advectParallel(int b, double[][][] current, double[][][] previous,
+                        double[][][] velocityX, double[][][] velocityY, double[][][] velocityZ) {
+        double dtx = timeStep * (room.gridSize[0] - 2);
+        double dty = timeStep * (room.gridSize[1] - 2);
+        double dtz = timeStep * (room.gridSize[2] - 2);
+
+        List<Callable<Void>> tasks = new ArrayList<>();
+
+        // Zastosuj równoległość na osiach X, Y i Z.
+        for (int k = 1; k < room.gridSize[2] - 1; k++) {
+            final int currentK = k;
+            tasks.add(() -> {
+                for (int j = 1; j < room.gridSize[1] - 1; j++) {
+                    for (int i = 1; i < room.gridSize[0] - 1; i++) {
+                        if (room.isSource[i][j][currentK] || room.isBarrier[i][j][currentK]) continue;
+
+                        double tmp1 = dtx * velocityX[i][j][currentK];
+                        double tmp2 = dty * velocityY[i][j][currentK];
+                        double tmp3 = dtz * velocityZ[i][j][currentK];
+                        double x = i - tmp1;
+                        double y = j - tmp2;
+                        double z = currentK - tmp3;
+
+                        // Clamping coordinates to grid bounds
+                        x = Math.max(0.5, Math.min(x, room.gridSize[0] + 0.5));
+                        y = Math.max(0.5, Math.min(y, room.gridSize[1] + 0.5));
+                        z = Math.max(0.5, Math.min(z, room.gridSize[2] + 0.5));
+
+                        int i0 = (int) Math.floor(x);
+                        int i1 = i0 + 1;
+                        int j0 = (int) Math.floor(y);
+                        int j1 = j0 + 1;
+                        int k0 = (int) Math.floor(z);
+                        int k1 = k0 + 1;
+
+                        double s1 = x - i0;
+                        double s0 = 1 - s1;
+                        double t1 = y - j0;
+                        double t0 = 1 - t1;
+                        double u1 = z - k0;
+                        double u0 = 1 - u1;
+
+                        current[i][j][currentK] = s0 * (t0 * (u0 * previous[i0][j0][k0] + u1 * previous[i0][j0][k1])
+                                + t1 * (u0 * previous[i0][j1][k0] + u1 * previous[i0][j1][k1]))
+                                + s1 * (t0 * (u0 * previous[i1][j0][k0] + u1 * previous[i1][j0][k1])
+                                + t1 * (u0 * previous[i1][j1][k0] + u1 * previous[i1][j1][k1]));
+                    }
+                }
+                return null;
+            });
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        try {
+            executor.invokeAll(tasks);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            executor.shutdown();
+        }
+
+        enforceBoundaryConditions(b, current);
+    }
+
+
 
     //Ten krok zapewnia, że symulacja zachowuje zasadę nieściśliwości płynu (np. powietrze/dym traktujemy jako nieściśliwy).
 //W tym celu metoda usuwa składową wiru z pola prędkości.
@@ -202,6 +324,7 @@ public class SmokeSimulation {
                 for (int z = 1; z < room.gridSize[2] - 1; z++) {
                     if (room.isSource[x][y][z]) continue;
                     if (room.isBarrier[x][y][z]) continue;
+                    if(room.isWindSource[x][y][z]) continue;
                     divergence[x][y][z] = -0.5 * (
                             (velocityX[x + 1][y][z] - velocityX[x - 1][y][z]) / room.gridSize[0]
                                     + (velocityY[x][y + 1][z] - velocityY[x][y - 1][z]) / room.gridSize[1]
@@ -221,6 +344,7 @@ public class SmokeSimulation {
                     for (int z = 1; z < room.gridSize[2] - 1; z++) {
                         if (room.isSource[x][y][z]) continue;
                         if (room.isBarrier[x][y][z]) continue;
+                        if(room.isWindSource[x][y][z]) continue;
                         pressure[x][y][z] = (divergence[x][y][z] +
                                 pressure[x + 1][y][z] + pressure[x - 1][y][z] +
                                 pressure[x][y + 1][z] + pressure[x][y - 1][z] +
@@ -237,6 +361,7 @@ public class SmokeSimulation {
                 for (int z = 1; z < room.gridSize[2] - 1; z++) {
                     if (room.isSource[x][y][z]) continue;
                     if (room.isBarrier[x][y][z]) continue;
+                    if(room.isWindSource[x][y][z]) continue;
                     velocityX[x][y][z] -= 0.5 * (pressure[x + 1][y][z] - pressure[x - 1][y][z]) * room.gridSize[0];
                     velocityY[x][y][z] -= 0.5 * (pressure[x][y + 1][z] - pressure[x][y - 1][z]) * room.gridSize[1];
                     velocityZ[x][y][z] -= 0.5 * (pressure[x][y][z + 1] - pressure[x][y][z - 1]) * room.gridSize[2];
@@ -247,6 +372,99 @@ public class SmokeSimulation {
         enforceBoundaryConditions(2, velocityY);
         enforceBoundaryConditions(3, velocityZ);
     }
+
+    private void projectParallel(double[][][] velocityX, double[][][] velocityY, double[][][] velocityZ,
+                         double[][][] pressure, double[][][] divergence) {
+
+        List<Callable<Void>> tasks = new ArrayList<>();
+
+        // Oblicz dywergencję równolegle
+        for (int x = 1; x < room.gridSize[0] - 1; x++) {
+            final int currentX = x;
+            tasks.add(() -> {
+                for (int y = 1; y < room.gridSize[1] - 1; y++) {
+                    for (int z = 1; z < room.gridSize[2] - 1; z++) {
+                        if (room.isSource[currentX][y][z] || room.isBarrier[currentX][y][z]) continue;
+                        divergence[currentX][y][z] = -0.5 * (
+                                (velocityX[currentX + 1][y][z] - velocityX[currentX - 1][y][z]) / room.gridSize[0] +
+                                        (velocityY[currentX][y + 1][z] - velocityY[currentX][y - 1][z]) / room.gridSize[1] +
+                                        (velocityZ[currentX][y][z + 1] - velocityZ[currentX][y][z - 1]) / room.gridSize[2]);
+                        pressure[currentX][y][z] = 0;
+                    }
+                }
+                return null;
+            });
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        try {
+            executor.invokeAll(tasks);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        enforceBoundaryConditions(0, divergence);
+        enforceBoundaryConditions(0, pressure);
+
+        // Rozwiąż równanie Laplace'a dla ciśnienia (Równolegle)
+        tasks.clear();
+        for (int iteration = 0; iteration < 4; iteration++) {
+            for (int x = 1; x < room.gridSize[0] - 1; x++) {
+                final int currentX = x;
+                tasks.add(() -> {
+                    for (int y = 1; y < room.gridSize[1] - 1; y++) {
+                        for (int z = 1; z < room.gridSize[2] - 1; z++) {
+                            if (room.isSource[currentX][y][z] || room.isBarrier[currentX][y][z]) continue;
+                            pressure[currentX][y][z] = (divergence[currentX][y][z] +
+                                    pressure[currentX + 1][y][z] + pressure[currentX - 1][y][z] +
+                                    pressure[currentX][y + 1][z] + pressure[currentX][y - 1][z] +
+                                    pressure[currentX][y][z + 1] + pressure[currentX][y][z - 1]) / 6;
+                        }
+                    }
+                    return null;
+                });
+            }
+
+            try {
+                executor.invokeAll(tasks);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
+            enforceBoundaryConditions(0, pressure);
+        }
+
+        // Aktualizuj pole prędkości (Równolegle)
+        tasks.clear();
+        for (int x = 1; x < room.gridSize[0] - 1; x++) {
+            final int currentX = x;
+            tasks.add(() -> {
+                for (int y = 1; y < room.gridSize[1] - 1; y++) {
+                    for (int z = 1; z < room.gridSize[2] - 1; z++) {
+                        if (room.isSource[currentX][y][z] || room.isBarrier[currentX][y][z]) continue;
+                        velocityX[currentX][y][z] -= 0.5 * (pressure[currentX + 1][y][z] - pressure[currentX - 1][y][z]) * room.gridSize[0];
+                        velocityY[currentX][y][z] -= 0.5 * (pressure[currentX][y + 1][z] - pressure[currentX][y - 1][z]) * room.gridSize[1];
+                        velocityZ[currentX][y][z] -= 0.5 * (pressure[currentX][y][z + 1] - pressure[currentX][y][z - 1]) * room.gridSize[2];
+                    }
+                }
+                return null;
+            });
+        }
+
+        try {
+            executor.invokeAll(tasks);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            executor.shutdown();
+        }
+
+        enforceBoundaryConditions(1, velocityX);
+        enforceBoundaryConditions(2, velocityY);
+        enforceBoundaryConditions(3, velocityZ);
+    }
+
+
 
     //    to jest test i raczej nie bedzie uzywane ale narazie zostawiam
     private void handleCollisionVelocity(int b, double[][][] x){
@@ -334,10 +552,6 @@ public class SmokeSimulation {
 //        Ten krok dodaje siłę wyporu wynikającą z różnicy temperatury. Gorętszy dym unosi się w górę, a chłodniejszy opada
     }
 
-    private void addWind() {
-//        Ten krok dodaje oddziaływanie wiatru na komórki
-    }
-
     // Główna metoda aktualizująca symulację
     public void update() {
 
@@ -354,9 +568,25 @@ public class SmokeSimulation {
 
         project(room.velocityX, room.velocityY, room.velocityZ, room.prevVelocityX, room.prevVelocityY);
 
-        diffuse(0, room.prevDensity, room.density, diffRate); //to jakos dziwnie rozprowadza dym do okola nie wiem czemu
+        diffuse(0, room.prevDensity, room.density, diffRate);
 
         advect(0, room.density, room.prevDensity, room.velocityX, room.velocityY, room.velocityZ);
+//
+//        diffuseParallel(1, room.velocityX, room.prevVelocityX, diffRate);
+//        diffuseParallel(2, room.velocityY, room.prevVelocityY, diffRate);
+//        diffuseParallel(3, room.velocityZ, room.prevVelocityZ, diffRate);
+//
+//        projectParallel(room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ, room.velocityX, room.velocityY);
+//
+//        advectParallel(1, room.velocityX, room.prevVelocityX, room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ);
+//        advectParallel(2, room.velocityY, room.prevVelocityY, room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ);
+//        advectParallel(3, room.velocityZ, room.prevVelocityZ, room.prevVelocityX, room.prevVelocityY, room.prevVelocityZ);
+//
+//        projectParallel(room.velocityX, room.velocityY, room.velocityZ, room.prevVelocityX, room.prevVelocityY);
+//
+//        diffuseParallel(0, room.prevDensity, room.density, diffRate);
+//
+//        advectParallel(0, room.density, room.prevDensity, room.velocityX, room.velocityY, room.velocityZ);
 
         room.prevVelocityX = copy(room.velocityX);
         room.prevVelocityY = copy(room.velocityY);
