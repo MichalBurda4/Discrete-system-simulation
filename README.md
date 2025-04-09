@@ -10,4 +10,4 @@ Projekt trójwymiarowego modelu rozprzestrzeniania się dymu w pomieszczeniu, z 
 W ramach projektu sporządziliśmy model formalny oraz zaimplementujemy symulację 3D.
 
 ## Wygląd naszej symulacji
-![Screenshot aplikacji](Discrete-system-simulation/Prezentacje/Screenshot from 2025-04-09 11-12-09.png)
+![Screenshot aplikacji](Prezentacje/appscreen.png)
