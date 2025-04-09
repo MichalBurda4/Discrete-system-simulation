@@ -11,3 +11,15 @@ W ramach projektu sporządziliśmy model formalny oraz zaimplementujemy symulacj
 
 ## Wygląd naszej symulacji
 ![Screenshot aplikacji](Prezentacje/appscreen.png)
+
+## Jak uruchomić?
+Aby uruchomić symulację należy wykonać w terminalu nastepujace komendy
+
+Pobranie projektu:
+git clone https://github.com/MichalBurda4/Discrete-system-simulation.git
+
+Przejscie do głównego katalogu projektu:
+cd Discrete-system-simulation
+
+Odpalenie symulacji:
+mvn javafx:run
