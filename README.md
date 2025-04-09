@@ -6,5 +6,8 @@
 - Paweł Froń - pawelfron@student.agh.edu.pl
 
 ## Opis projektu:
-Projekt trójwymiarowego modelu rozprzestrzeniania się dymu w pomieszczeniu, z uwzględnieniem temperatury, kierunku ruchu powietrza i innych czynników.​
+Projekt trójwymiarowego modelu rozprzestrzeniania się dymu w pomieszczeniu, z uwzględnieniem kierunku ruchu powietrza i przeszkód.​
 W ramach projektu sporządziliśmy model formalny oraz zaimplementujemy symulację 3D.
+
+## Wygląd naszej symulacji
+![Screenshot aplikacji](Prezentacje/Screenshot from 2025-04-09 11-12-09.png)
