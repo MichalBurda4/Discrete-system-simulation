@@ -10,7 +10,7 @@ Projekt trójwymiarowego modelu rozprzestrzeniania się dymu w pomieszczeniu, z 
 W ramach projektu sporządziliśmy model formalny oraz zaimplementujemy symulację 3D.
 
 ## Wygląd naszej symulacji
-![Screenshot aplikacji](Prezentacje/appscreen.png)
+![Gif aplikacji](Prezentacje/output.gif)
 
 ## Jak uruchomić?
 Aby uruchomić symulację należy wykonać w terminalu nastepujace komendy:
